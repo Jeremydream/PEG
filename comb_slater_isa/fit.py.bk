@@ -1,0 +1,644 @@
+#!/usr/bin/env python
+import sys
+import numpy as np
+import openmm
+from openmm import *
+from openmm.app import *
+from openmm.unit import *
+import jax
+import jax_md
+import jax.numpy as jnp
+import dmff
+from dmff.api import Hamiltonian
+import pickle
+import time
+from jax import value_and_grad, jit
+import optax
+
+if __name__ == '__main__':
+    restart_1 = '../peg2_peg2/params.0.pickle'
+    database_1 = '../peg2_peg2/data_sr.pickle'
+    ff_1 = '../peg2_peg2/forcefield.xml'
+    pdb_AB_1 = PDBFile('../peg2_peg2/peg2_dimer.pdb')
+    pdb_A_1 = PDBFile('../peg2_peg2/peg2.pdb')
+    pdb_B_1 = PDBFile('../peg2_peg2/peg2.pdb')
+    H_AB_1 = Hamiltonian(ff_1)
+    H_A_1 = Hamiltonian(ff_1)
+    H_B_1 = Hamiltonian(ff_1)
+    pme_generator_AB_1, \
+            disp_generator_AB_1, \
+            ex_generator_AB_1, \
+            sr_es_generator_AB_1, \
+            sr_pol_generator_AB_1, \
+            sr_disp_generator_AB_1, \
+            dhf_generator_AB_1, \
+            dmp_es_generator_AB_1, \
+            dmp_disp_generator_AB_1 = H_AB_1.getGenerators()
+    pme_generator_A_1, \
+            disp_generator_A_1, \
+            ex_generator_A_1, \
+            sr_es_generator_A_1, \
+            sr_pol_generator_A_1, \
+            sr_disp_generator_A_1, \
+            dhf_generator_A_1, \
+            dmp_es_generator_A_1, \
+            dmp_disp_generator_A_1 = H_A_1.getGenerators()
+    pme_generator_B_1, \
+            disp_generator_B_1, \
+            ex_generator_B_1, \
+            sr_es_generator_B_1, \
+            sr_pol_generator_B_1, \
+            sr_disp_generator_B_1, \
+            dhf_generator_B_1, \
+            dmp_es_generator_B_1, \
+            dmp_disp_generator_B_1 = H_B_1.getGenerators()
+
+    rc = 15
+
+    # get potential functions
+    potentials_AB_1 = H_AB_1.createPotential(pdb_AB_1.topology, nonbondedCutoff=rc*angstrom, ethresh=1e-4)
+    potentials_A_1 = H_A_1.createPotential(pdb_A_1.topology, nonbondedCutoff=rc*angstrom, ethresh=1e-4)
+    potentials_B_1 = H_B_1.createPotential(pdb_B_1.topology, nonbondedCutoff=rc*angstrom, ethresh=1e-4)
+
+    pos_AB0_1 = jnp.array(pdb_AB_1.positions._value) * 10
+    n_atoms_1 = len(pos_AB0_1)
+    n_atoms_A_1 = len(jnp.array(pdb_A_1.positions._value)*10)
+    n_atoms_B_1 = n_atoms_1 - n_atoms_A_1
+    pos_A0_1 = jnp.array(pdb_AB_1.positions._value[:n_atoms_A_1]) * 10
+    pos_B0_1 = jnp.array(pdb_AB_1.positions._value[n_atoms_A_1:n_atoms_1]) * 10
+    box_1 = jnp.array(pdb_AB_1.topology.getPeriodicBoxVectors()._value) * 10
+    # nn list initial allocation
+    displacement_fn_1, shift_fn_1 = jax_md.space.periodic_general(box_1, fractional_coordinates=False)
+    neighbor_list_fn_1 = jax_md.partition.neighbor_list(displacement_fn_1, box_1, rc, 0, format=jax_md.partition.OrderedSparse)
+    nbr_AB_1 = neighbor_list_fn_1.allocate(pos_AB0_1)
+    nbr_A_1 = neighbor_list_fn_1.allocate(pos_A0_1)
+    nbr_B_1 = neighbor_list_fn_1.allocate(pos_B0_1)
+    pairs_AB_1 = np.array(nbr_AB_1.idx.T)
+    pairs_A_1 = np.array(nbr_A_1.idx.T)
+    pairs_B_1 = np.array(nbr_B_1.idx.T)
+
+    pairs_AB_1 =  pairs_AB_1[pairs_AB_1[:, 0] < pairs_AB_1[:, 1]]
+    pairs_A_1 =  pairs_A_1[pairs_A_1[:, 0] < pairs_A_1[:, 1]]
+    pairs_B_1 =  pairs_B_1[pairs_B_1[:, 0] < pairs_B_1[:, 1]]
+
+
+    restart_2 = '../coc_peg2/params.0.pickle'
+    database_2 = '../coc_peg2/data_sr.pickle' 
+    ff_2 = '../coc_peg2/forcefield.xml'
+    pdb_AB_2 = PDBFile('../coc_peg2/coc_peg2.pdb')
+    pdb_A_2 = PDBFile('../coc_peg2/peg2.pdb')
+    pdb_B_2 = PDBFile('../coc_peg2/coc.pdb')
+    H_AB_2 = Hamiltonian(ff_2)
+    H_A_2 = Hamiltonian(ff_2)
+    H_B_2 = Hamiltonian(ff_2)
+
+    pme_generator_AB_2, \
+            disp_generator_AB_2, \
+            ex_generator_AB_2, \
+            sr_es_generator_AB_2, \
+            sr_pol_generator_AB_2, \
+            sr_disp_generator_AB_2, \
+            dhf_generator_AB_2, \
+            dmp_es_generator_AB_2, \
+            dmp_disp_generator_AB_2 = H_AB_2.getGenerators()
+    pme_generator_A_2, \
+            disp_generator_A_2, \
+            ex_generator_A_2, \
+            sr_es_generator_A_2, \
+            sr_pol_generator_A_2, \
+            sr_disp_generator_A_2, \
+            dhf_generator_A_2, \
+            dmp_es_generator_A_2, \
+            dmp_disp_generator_A_2 = H_A_2.getGenerators()
+    pme_generator_B_2, \
+            disp_generator_B_2, \
+            ex_generator_B_2, \
+            sr_es_generator_B_2, \
+            sr_pol_generator_B_2, \
+            sr_disp_generator_B_2, \
+            dhf_generator_B_2, \
+            dmp_es_generator_B_2, \
+            dmp_disp_generator_B_2 = H_B_2.getGenerators()
+
+    rc = 15
+
+    # get potential functions
+    potentials_AB_2 = H_AB_2.createPotential(pdb_AB_2.topology, nonbondedCutoff=rc*angstrom, ethresh=1e-4)
+    potentials_A_2 = H_A_2.createPotential(pdb_A_2.topology, nonbondedCutoff=rc*angstrom, ethresh=1e-4)
+    potentials_B_2 = H_B_2.createPotential(pdb_B_2.topology, nonbondedCutoff=rc*angstrom, ethresh=1e-4)
+
+    pos_AB0_2 = jnp.array(pdb_AB_2.positions._value) * 10
+    n_atoms_2 = len(pos_AB0_2)
+    n_atoms_A_2 = len(jnp.array(pdb_A_2.positions._value)*10)
+    n_atoms_B_2 = n_atoms_2 - n_atoms_A_2
+    pos_A0_2 = jnp.array(pdb_AB_2.positions._value[:n_atoms_A_2]) * 10
+    pos_B0_2 = jnp.array(pdb_AB_2.positions._value[n_atoms_A_2:n_atoms_2]) * 10
+    box_2 = jnp.array(pdb_AB_2.topology.getPeriodicBoxVectors()._value) * 10
+    # nn list initial allocation
+    displacement_fn_2, shift_fn_2 = jax_md.space.periodic_general(box_2, fractional_coordinates=False)
+    neighbor_list_fn_2 = jax_md.partition.neighbor_list(displacement_fn_2, box_2, rc, 0, format=jax_md.partition.OrderedSparse)
+    nbr_AB_2 = neighbor_list_fn_2.allocate(pos_AB0_2)
+    nbr_A_2 = neighbor_list_fn_2.allocate(pos_A0_2)
+    nbr_B_2 = neighbor_list_fn_2.allocate(pos_B0_2)
+    pairs_AB_2 = np.array(nbr_AB_2.idx.T)
+    pairs_A_2 = np.array(nbr_A_2.idx.T)
+    pairs_B_2 = np.array(nbr_B_2.idx.T)
+
+    pairs_AB_2 =  pairs_AB_2[pairs_AB_2[:, 0] < pairs_AB_2[:, 1]]
+    pairs_A_2 =  pairs_A_2[pairs_A_2[:, 0] < pairs_A_2[:, 1]]
+    pairs_B_2 =  pairs_B_2[pairs_B_2[:, 0] < pairs_B_2[:, 1]]
+
+    restart_3 = '../c_peg2/params.0.pickle' 
+    database_3 = '../c_peg2/data_sr.pickle' 
+    ff_3 = '../c_peg2/forcefield.xml'
+    pdb_AB_3 = PDBFile('../c_peg2/ch4_peg2.pdb')
+    pdb_A_3 = PDBFile('../c_peg2/peg2.pdb')
+    pdb_B_3 = PDBFile('../c_peg2/ch4.pdb')
+    H_AB_3 = Hamiltonian(ff_3)
+    H_A_3 = Hamiltonian(ff_3)
+    H_B_3 = Hamiltonian(ff_3)
+    pme_generator_AB_3, \
+            disp_generator_AB_3, \
+            ex_generator_AB_3, \
+            sr_es_generator_AB_3, \
+            sr_pol_generator_AB_3, \
+            sr_disp_generator_AB_3, \
+            dhf_generator_AB_3, \
+            dmp_es_generator_AB_3, \
+            dmp_disp_generator_AB_3 = H_AB_3.getGenerators()
+    pme_generator_A_3, \
+            disp_generator_A_3, \
+            ex_generator_A_3, \
+            sr_es_generator_A_3, \
+            sr_pol_generator_A_3, \
+            sr_disp_generator_A_3, \
+            dhf_generator_A_3, \
+            dmp_es_generator_A_3, \
+            dmp_disp_generator_A_3 = H_A_3.getGenerators()
+    pme_generator_B_3, \
+            disp_generator_B_3, \
+            ex_generator_B_3, \
+            sr_es_generator_B_3, \
+            sr_pol_generator_B_3, \
+            sr_disp_generator_B_3, \
+            dhf_generator_B_3, \
+            dmp_es_generator_B_3, \
+            dmp_disp_generator_B_3 = H_B_3.getGenerators()
+
+    rc = 15
+
+    # get potential functions
+    potentials_AB_3 = H_AB_3.createPotential(pdb_AB_3.topology, nonbondedCutoff=rc*angstrom, ethresh=1e-4)
+    potentials_A_3 = H_A_3.createPotential(pdb_A_3.topology, nonbondedCutoff=rc*angstrom, ethresh=1e-4)
+    potentials_B_3 = H_B_3.createPotential(pdb_B_3.topology, nonbondedCutoff=rc*angstrom, ethresh=1e-4)
+
+    pos_AB0_3 = jnp.array(pdb_AB_3.positions._value) * 10
+    n_atoms_3 = len(pos_AB0_3)
+    n_atoms_A_3 = len(jnp.array(pdb_A_3.positions._value)*10)
+    n_atoms_B_3 = n_atoms_3 - n_atoms_A_3
+    pos_A0_3 = jnp.array(pdb_AB_3.positions._value[:n_atoms_A_3]) * 10
+    pos_B0_3 = jnp.array(pdb_AB_3.positions._value[n_atoms_A_3:n_atoms_3]) * 10
+    box_3 = jnp.array(pdb_AB_3.topology.getPeriodicBoxVectors()._value) * 10
+    # nn list initial allocation
+    displacement_fn_3, shift_fn_3 = jax_md.space.periodic_general(box_3, fractional_coordinates=False)
+    neighbor_list_fn_3 = jax_md.partition.neighbor_list(displacement_fn_3, box_3, rc, 0, format=jax_md.partition.OrderedSparse)
+    nbr_AB_3 = neighbor_list_fn_3.allocate(pos_AB0_3)
+    nbr_A_3 = neighbor_list_fn_3.allocate(pos_A0_3)
+    nbr_B_3 = neighbor_list_fn_3.allocate(pos_B0_3)
+    pairs_AB_3 = np.array(nbr_AB_3.idx.T)
+    pairs_A_3 = np.array(nbr_A_3.idx.T)
+    pairs_B_3 = np.array(nbr_B_3.idx.T)
+
+    pairs_AB_3 =  pairs_AB_3[pairs_AB_3[:, 0] < pairs_AB_3[:, 1]]
+    pairs_A_3 =  pairs_A_3[pairs_A_3[:, 0] < pairs_A_3[:, 1]]
+    pairs_B_3 =  pairs_B_3[pairs_B_3[:, 0] < pairs_B_3[:, 1]]
+
+    restart_4 = '../coc_coc/params.0.pickle'
+    database_4 = '../coc_coc/data_sr.pickle'  
+    ff_4 = '../coc_coc/forcefield.xml'
+    pdb_AB_4 = PDBFile('../coc_coc/coc_dimer.pdb')
+    pdb_A_4 = PDBFile('../coc_coc/coc.pdb')
+    pdb_B_4 = PDBFile('../coc_coc/coc.pdb')
+    H_AB_4 = Hamiltonian(ff_4)
+    H_A_4 = Hamiltonian(ff_4)
+    H_B_4 = Hamiltonian(ff_4)
+    pme_generator_AB_4, \
+            disp_generator_AB_4, \
+            ex_generator_AB_4, \
+            sr_es_generator_AB_4, \
+            sr_pol_generator_AB_4, \
+            sr_disp_generator_AB_4, \
+            dhf_generator_AB_4, \
+            dmp_es_generator_AB_4, \
+            dmp_disp_generator_AB_4 = H_AB_4.getGenerators()
+    pme_generator_A_4, \
+            disp_generator_A_4, \
+            ex_generator_A_4, \
+            sr_es_generator_A_4, \
+            sr_pol_generator_A_4, \
+            sr_disp_generator_A_4, \
+            dhf_generator_A_4, \
+            dmp_es_generator_A_4, \
+            dmp_disp_generator_A_4 = H_A_4.getGenerators()
+    pme_generator_B_4, \
+            disp_generator_B_4, \
+            ex_generator_B_4, \
+            sr_es_generator_B_4, \
+            sr_pol_generator_B_4, \
+            sr_disp_generator_B_4, \
+            dhf_generator_B_4, \
+            dmp_es_generator_B_4, \
+            dmp_disp_generator_B_4 = H_B_4.getGenerators()
+
+    rc = 15
+
+    # get potential functions
+    potentials_AB_4 = H_AB_4.createPotential(pdb_AB_4.topology, nonbondedCutoff=rc*angstrom, ethresh=1e-4)
+    potentials_A_4 = H_A_4.createPotential(pdb_A_4.topology, nonbondedCutoff=rc*angstrom, ethresh=1e-4)
+    potentials_B_4 = H_B_4.createPotential(pdb_B_4.topology, nonbondedCutoff=rc*angstrom, ethresh=1e-4)
+
+    pos_AB0_4 = jnp.array(pdb_AB_4.positions._value) * 10
+    n_atoms_4 = len(pos_AB0_4)
+    n_atoms_A_4 = len(jnp.array(pdb_A_4.positions._value)*10)
+    n_atoms_B_4 = n_atoms_4 - n_atoms_A_4
+    pos_A0_4 = jnp.array(pdb_AB_4.positions._value[:n_atoms_A_4]) * 10
+    pos_B0_4 = jnp.array(pdb_AB_4.positions._value[n_atoms_A_4:n_atoms_4]) * 10
+    box_4 = jnp.array(pdb_AB_4.topology.getPeriodicBoxVectors()._value) * 10
+    # nn list initial allocation
+    displacement_fn_4, shift_fn_4 = jax_md.space.periodic_general(box_4, fractional_coordinates=False)
+    neighbor_list_fn_4 = jax_md.partition.neighbor_list(displacement_fn_4, box_4, rc, 0, format=jax_md.partition.OrderedSparse)
+    nbr_AB_4 = neighbor_list_fn_4.allocate(pos_AB0_4)
+    nbr_A_4 = neighbor_list_fn_4.allocate(pos_A0_4)
+    nbr_B_4 = neighbor_list_fn_4.allocate(pos_B0_4)
+    pairs_AB_4 = np.array(nbr_AB_4.idx.T)
+    pairs_A_4 = np.array(nbr_A_4.idx.T)
+    pairs_B_4 = np.array(nbr_B_4.idx.T)
+
+    pairs_AB_4 =  pairs_AB_4[pairs_AB_4[:, 0] < pairs_AB_4[:, 1]]
+    pairs_A_4 =  pairs_A_4[pairs_A_4[:, 0] < pairs_A_4[:, 1]]
+    pairs_B_4 =  pairs_B_4[pairs_B_4[:, 0] < pairs_B_4[:, 1]]
+
+    restart_5 = '../c_coc/params.0.pickle'
+    database_5 = '../c_coc/data_sr.pickle'  
+    ff_5 = '../c_coc/forcefield.xml'
+    pdb_AB_5 = PDBFile('../c_coc/ch4_coc.pdb')
+    pdb_A_5 = PDBFile('../c_coc/coc.pdb')
+    pdb_B_5 = PDBFile('../c_coc/ch4.pdb')
+    H_AB_5 = Hamiltonian(ff_5)
+    H_A_5 = Hamiltonian(ff_5)
+    H_B_5 = Hamiltonian(ff_5)
+    pme_generator_AB_5, \
+            disp_generator_AB_5, \
+            ex_generator_AB_5, \
+            sr_es_generator_AB_5, \
+            sr_pol_generator_AB_5, \
+            sr_disp_generator_AB_5, \
+            dhf_generator_AB_5, \
+            dmp_es_generator_AB_5, \
+            dmp_disp_generator_AB_5 = H_AB_5.getGenerators()
+    pme_generator_A_5, \
+            disp_generator_A_5, \
+            ex_generator_A_5, \
+            sr_es_generator_A_5, \
+            sr_pol_generator_A_5, \
+            sr_disp_generator_A_5, \
+            dhf_generator_A_5, \
+            dmp_es_generator_A_5, \
+            dmp_disp_generator_A_5 = H_A_5.getGenerators()
+    pme_generator_B_5, \
+            disp_generator_B_5, \
+            ex_generator_B_5, \
+            sr_es_generator_B_5, \
+            sr_pol_generator_B_5, \
+            sr_disp_generator_B_5, \
+            dhf_generator_B_5, \
+            dmp_es_generator_B_5, \
+            dmp_disp_generator_B_5 = H_B_5.getGenerators()
+
+    rc = 15
+
+    # get potential functions
+    potentials_AB_5 = H_AB_5.createPotential(pdb_AB_5.topology, nonbondedCutoff=rc*angstrom, ethresh=1e-4)
+    potentials_A_5 = H_A_5.createPotential(pdb_A_5.topology, nonbondedCutoff=rc*angstrom, ethresh=1e-4)
+    potentials_B_5 = H_B_5.createPotential(pdb_B_5.topology, nonbondedCutoff=rc*angstrom, ethresh=1e-4)
+
+    pos_AB0_5 = jnp.array(pdb_AB_5.positions._value) * 10
+    n_atoms_5 = len(pos_AB0_5)
+    n_atoms_A_5 = len(jnp.array(pdb_A_5.positions._value)*10)
+    n_atoms_B_5 = n_atoms_5 - n_atoms_A_5
+    pos_A0_5 = jnp.array(pdb_AB_5.positions._value[:n_atoms_A_5]) * 10
+    pos_B0_5 = jnp.array(pdb_AB_5.positions._value[n_atoms_A_5:n_atoms_5]) * 10
+    box_5 = jnp.array(pdb_AB_5.topology.getPeriodicBoxVectors()._value) * 10
+    # nn list initial allocation
+    displacement_fn_5, shift_fn_5 = jax_md.space.periodic_general(box_5, fractional_coordinates=False)
+    neighbor_list_fn_5 = jax_md.partition.neighbor_list(displacement_fn_5, box_5, rc, 0, format=jax_md.partition.OrderedSparse)
+    nbr_AB_5 = neighbor_list_fn_5.allocate(pos_AB0_5)
+    nbr_A_5 = neighbor_list_fn_5.allocate(pos_A0_5)
+    nbr_B_5 = neighbor_list_fn_5.allocate(pos_B0_5)
+    pairs_AB_5 = np.array(nbr_AB_5.idx.T)
+    pairs_A_5 = np.array(nbr_A_5.idx.T)
+    pairs_B_5 = np.array(nbr_B_5.idx.T)
+
+    pairs_AB_5 =  pairs_AB_5[pairs_AB_5[:, 0] < pairs_AB_5[:, 1]]
+    pairs_A_5 =  pairs_A_5[pairs_A_5[:, 0] < pairs_A_5[:, 1]]
+    pairs_B_5 =  pairs_B_5[pairs_B_5[:, 0] < pairs_B_5[:, 1]]
+
+    restart_6 = '../c_c/params.0.pickle'
+    database_6 = '../c_c/data_sr.pickle'  
+    ff_6 = '../c_c/forcefield.xml'
+    pdb_AB_6 = PDBFile('../c_c/ch4_dimer.pdb')
+    pdb_A_6 = PDBFile('../c_c/ch4.pdb')
+    pdb_B_6 = PDBFile('../c_c/ch4.pdb')
+    H_AB_6 = Hamiltonian(ff_6)
+    H_A_6 = Hamiltonian(ff_6)
+    H_B_6 = Hamiltonian(ff_6)
+    pme_generator_AB_6, \
+            disp_generator_AB_6, \
+            ex_generator_AB_6, \
+            sr_es_generator_AB_6, \
+            sr_pol_generator_AB_6, \
+            sr_disp_generator_AB_6, \
+            dhf_generator_AB_6, \
+            dmp_es_generator_AB_6, \
+            dmp_disp_generator_AB_6 = H_AB_6.getGenerators()
+    pme_generator_A_6, \
+            disp_generator_A_6, \
+            ex_generator_A_6, \
+            sr_es_generator_A_6, \
+            sr_pol_generator_A_6, \
+            sr_disp_generator_A_6, \
+            dhf_generator_A_6, \
+            dmp_es_generator_A_6, \
+            dmp_disp_generator_A_6 = H_A_6.getGenerators()
+    pme_generator_B_6, \
+            disp_generator_B_6, \
+            ex_generator_B_6, \
+            sr_es_generator_B_6, \
+            sr_pol_generator_B_6, \
+            sr_disp_generator_B_6, \
+            dhf_generator_B_6, \
+            dmp_es_generator_B_6, \
+            dmp_disp_generator_B_6 = H_B_6.getGenerators()
+
+    rc = 15
+
+    # get potential functions
+    potentials_AB_6 = H_AB_6.createPotential(pdb_AB_6.topology, nonbondedCutoff=rc*angstrom, ethresh=1e-4)
+    potentials_A_6 = H_A_6.createPotential(pdb_A_6.topology, nonbondedCutoff=rc*angstrom, ethresh=1e-4)
+    potentials_B_6 = H_B_6.createPotential(pdb_B_6.topology, nonbondedCutoff=rc*angstrom, ethresh=1e-4)
+
+    pos_AB0_6 = jnp.array(pdb_AB_6.positions._value) * 10
+    n_atoms_6 = len(pos_AB0_6)
+    n_atoms_A_6 = len(jnp.array(pdb_A_6.positions._value)*10)
+    n_atoms_B_6 = n_atoms_6 - n_atoms_A_6
+    pos_A0_6 = jnp.array(pdb_AB_6.positions._value[:n_atoms_A_6]) * 10
+    pos_B0_6 = jnp.array(pdb_AB_6.positions._value[n_atoms_A_6:n_atoms_6]) * 10
+    box_6 = jnp.array(pdb_AB_6.topology.getPeriodicBoxVectors()._value) * 10
+    # nn list initial allocation
+    displacement_fn_6, shift_fn_6 = jax_md.space.periodic_general(box_6, fractional_coordinates=False)
+    neighbor_list_fn_6 = jax_md.partition.neighbor_list(displacement_fn_6, box_6, rc, 0, format=jax_md.partition.OrderedSparse)
+    nbr_AB_6 = neighbor_list_fn_6.allocate(pos_AB0_6)
+    nbr_A_6 = neighbor_list_fn_6.allocate(pos_A0_6)
+    nbr_B_6 = neighbor_list_fn_6.allocate(pos_B0_6)
+    pairs_AB_6 = np.array(nbr_AB_6.idx.T)
+    pairs_A_6 = np.array(nbr_A_6.idx.T)
+    pairs_B_6 = np.array(nbr_B_6.idx.T)
+
+    pairs_AB_6 =  pairs_AB_6[pairs_AB_6[:, 0] < pairs_AB_6[:, 1]]
+    pairs_A_6 =  pairs_A_6[pairs_A_6[:, 0] < pairs_A_6[:, 1]]
+    pairs_B_6 =  pairs_B_6[pairs_B_6[:, 0] < pairs_B_6[:, 1]]
+
+
+    # construct total force field params
+    comps = ['ex', 'es', 'pol', 'disp', 'dhf', 'tot']
+    weights_comps = jnp.array([0.001, 0.001, 0.001, 0.001, 0.001, 1.0])
+    with open(restart_1, 'rb') as ifile:
+        params_1 = pickle.load(ifile)    
+    with open(restart_2, 'rb') as ifile:
+        params_2 = pickle.load(ifile)
+    with open(restart_3, 'rb') as ifile:
+        params_3 = pickle.load(ifile)
+    with open(restart_4, 'rb') as ifile:
+        params_4 = pickle.load(ifile)
+    with open(restart_5, 'rb') as ifile:
+        params_5 = pickle.load(ifile)
+    with open(restart_6, 'rb') as ifile:
+        params_6 = pickle.load(ifile)
+
+    # load data
+    with open(database_1, 'rb') as ifile:
+        data_1 = pickle.load(ifile)
+    with open(database_2, 'rb') as ifile:
+        data_2 = pickle.load(ifile)
+    with open(database_3, 'rb') as ifile:
+        data_3 = pickle.load(ifile)
+    with open(database_4, 'rb') as ifile:
+        data_4 = pickle.load(ifile)
+    with open(database_5, 'rb') as ifile:
+        data_5 = pickle.load(ifile)
+    with open(database_6, 'rb') as ifile:
+        data_6 = pickle.load(ifile)
+     
+    @jit
+    def MSELoss(params, scan_res):
+        '''
+        The weighted mean squared error loss function
+        Conducted for each scan
+        '''
+        # judge the choose of input data
+        judge = params['Q_local'].shape[0]
+        if judge == 6:
+            potentials_AB, potentials_A, potentials_B, pairs_AB, pairs_A, pairs_B, box = potentials_AB_1, potentials_A_1, potentials_B_1, pairs_AB_1, pairs_A_1, pairs_B_1, box_1
+        elif judge == 9:
+            potentials_AB, potentials_A, potentials_B, pairs_AB, pairs_A, pairs_B, box = potentials_AB_2, potentials_A_2, potentials_B_2, pairs_AB_2, pairs_A_2, pairs_B_2, box_2
+        elif judge == 8:
+            potentials_AB, potentials_A, potentials_B, pairs_AB, pairs_A, pairs_B, box = potentials_AB_3, potentials_A_3, potentials_B_3, pairs_AB_3, pairs_A_3, pairs_B_3, box_3
+        elif judge == 3:
+            potentials_AB, potentials_A, potentials_B, pairs_AB, pairs_A, pairs_B, box = potentials_AB_4, potentials_A_4, potentials_B_4, pairs_AB_4, pairs_A_4, pairs_B_4, box_4
+        elif judge == 5:
+            potentials_AB, potentials_A, potentials_B, pairs_AB, pairs_A, pairs_B, box = potentials_AB_5, potentials_A_5, potentials_B_5, pairs_AB_5, pairs_A_5, pairs_B_5, box_5
+        elif judge == 2:
+            potentials_AB, potentials_A, potentials_B, pairs_AB, pairs_A, pairs_B, box = potentials_AB_6, potentials_A_6, potentials_B_6, pairs_AB_6, pairs_A_6, pairs_B_6, box_6
+
+        pot_pme_AB, \
+                pot_disp_AB, \
+                pot_ex_AB, \
+                pot_sr_es_AB, \
+                pot_sr_pol_AB, \
+                pot_sr_disp_AB, \
+                pot_dhf_AB, \
+                pot_dmp_es_AB, \
+                pot_dmp_disp_AB = potentials_AB
+        pot_pme_A, \
+                pot_disp_A, \
+                pot_ex_A, \
+                pot_sr_es_A, \
+                pot_sr_pol_A, \
+                pot_sr_disp_A, \
+                pot_dhf_A, \
+                pot_dmp_es_A, \
+                pot_dmp_disp_A = potentials_A
+        pot_pme_B, \
+                pot_disp_B, \
+                pot_ex_B, \
+                pot_sr_es_B, \
+                pot_sr_pol_B, \
+                pot_sr_disp_B, \
+                pot_dhf_B, \
+                pot_dmp_es_B, \
+                pot_dmp_disp_B = potentials_B
+
+        E_tot_full = scan_res['tot_full']
+        kT = 2.494 # 300 K = 2.494 kJ/mol
+        # give the large interaction energy a weight
+        weights_pts = jnp.piecewise(E_tot_full, [E_tot_full<25, E_tot_full>=25], [lambda x: jnp.array(1.0), lambda x: jnp.exp(-(x-25)/kT)])
+        npts = len(weights_pts) 
+        
+        energies = {
+                'ex': jnp.zeros(npts), 
+                'es': jnp.zeros(npts), 
+                'pol': jnp.zeros(npts),
+                'disp': jnp.zeros(npts),
+                'dhf': jnp.zeros(npts),
+                'tot': jnp.zeros(npts)
+                }
+
+        # setting up params for all calculators
+        params_ex = {}
+        params_sr_es = {}
+        params_sr_pol = {}
+        params_sr_disp = {}
+        params_dhf = {}
+        params_dmp_es = {}  # electrostatic damping
+        params_dmp_disp = {} # dispersion damping
+        for k in ['B', 'mScales']:
+            params_ex[k] = params[k]
+            params_sr_es[k] = params[k]
+            params_sr_pol[k] = params[k]
+            params_sr_disp[k] = params[k]
+            params_dhf[k] = params[k]
+            params_dmp_es[k] = params[k]
+            params_dmp_disp[k] = params[k]
+        params_ex['A'] = params['A_ex']
+        params_sr_es['A'] = params['A_es']
+        params_sr_pol['A'] = params['A_pol']
+        params_sr_disp['A'] = params['A_disp']
+        params_dhf['A'] = params['A_dhf']
+        # damping parameters
+        params_dmp_es['Q'] = params['Q']
+        params_dmp_disp['C6'] = params['C6']
+        params_dmp_disp['C8'] = params['C8']
+        params_dmp_disp['C10'] = params['C10']
+
+        # calculate each points, only the short range and damping components
+        for ipt in range(npts):
+            # get position array
+            pos_A = jnp.array(scan_res['posA'][ipt])
+            pos_B = jnp.array(scan_res['posB'][ipt])
+            pos_AB = jnp.concatenate([pos_A, pos_B], axis=0)
+     
+            #####################
+            # exchange repulsion
+            #####################
+            E_ex_AB = pot_ex_AB(pos_AB, box, pairs_AB, params_ex)
+            E_ex_A = pot_ex_A(pos_A, box, pairs_A, params_ex)
+            E_ex_B = pot_ex_B(pos_B, box, pairs_B, params_ex)
+            E_ex = E_ex_AB - E_ex_A - E_ex_B
+
+            #######################
+            # electrostatic + pol
+            #######################
+            E_dmp_es = pot_dmp_es_AB(pos_AB, box, pairs_AB, params_dmp_es) \
+                     - pot_dmp_es_A(pos_A, box, pairs_A, params_dmp_es) \
+                     - pot_dmp_es_B(pos_B, box, pairs_B, params_dmp_es)
+            E_sr_es = pot_sr_es_AB(pos_AB, box, pairs_AB, params_sr_es) \
+                    - pot_sr_es_A(pos_A, box, pairs_A, params_sr_es) \
+                    - pot_sr_es_B(pos_B, box, pairs_B, params_sr_es)
+
+            ###################################
+            # polarization (induction) energy
+            ###################################
+            E_sr_pol = pot_sr_pol_AB(pos_AB, box, pairs_AB, params_sr_pol) \
+                     - pot_sr_pol_A(pos_A, box, pairs_A, params_sr_pol) \
+                     - pot_sr_pol_B(pos_B, box, pairs_B, params_sr_pol)
+
+            #############
+            # dispersion
+            #############
+            E_dmp_disp = pot_dmp_disp_AB(pos_AB, box, pairs_AB, params_dmp_disp) \
+                       - pot_dmp_disp_A(pos_A, box, pairs_A, params_dmp_disp) \
+                       - pot_dmp_disp_B(pos_B, box, pairs_B, params_dmp_disp)
+            E_sr_disp = pot_sr_disp_AB(pos_AB, box, pairs_AB, params_sr_disp) \
+                      - pot_sr_disp_A(pos_A, box, pairs_A, params_sr_disp) \
+                      - pot_sr_disp_B(pos_B, box, pairs_B, params_sr_disp)
+
+            ###########
+            # dhf
+            ###########
+            E_AB_dhf = pot_dhf_AB(pos_AB, box, pairs_AB, params_dhf)
+            E_A_dhf = pot_dhf_A(pos_A, box, pairs_A, params_dhf)
+            E_B_dhf = pot_dhf_B(pos_B, box, pairs_B, params_dhf)
+            E_dhf = E_AB_dhf - E_A_dhf - E_B_dhf
+
+            energies['ex'] = energies['ex'].at[ipt].set(E_ex)
+            energies['es'] = energies['es'].at[ipt].set(E_dmp_es + E_sr_es)
+            energies['pol'] = energies['pol'].at[ipt].set(E_sr_pol)
+            energies['disp'] = energies['disp'].at[ipt].set(E_dmp_disp + E_sr_disp)
+            energies['dhf'] = energies['dhf'].at[ipt].set(E_dhf)
+            energies['tot'] = energies['tot'].at[ipt].set(E_ex 
+                                                        + E_dmp_es + E_sr_es
+                                                        + E_sr_pol 
+                                                        + E_dmp_disp + E_sr_disp 
+                                                        + E_dhf)
+
+
+        errs = jnp.zeros(len(comps))
+        for ic, c in enumerate(comps):
+            dE = energies[c] - scan_res[c]
+            mse = dE**2 * weights_pts / jnp.sum(weights_pts)
+            errs = errs.at[ic].set(jnp.sum(mse))
+
+        return jnp.sum(weights_comps * errs)
+
+    params_tot = {'linear_1': params_1, 'linear_2': params_2, 'linear_3': params_3, 'linear_4': params_4, 'linear_5': params_5, 'linear_6': params_6}
+
+    def f(params, data_1, data_2, data_3, data_4, data_5, data_6):
+        linear_param_1 = params['linear_1']
+        linear_param_2 = params['linear_2']
+        linear_param_3 = params['linear_3']
+        linear_param_4 = params['linear_4']
+        linear_param_5 = params['linear_5']
+        linear_param_6 = params['linear_6']
+        return 1.0*MSELoss(linear_param_1, data_1) + 0.8*MSELoss(linear_param_2, data_2) + 0.5*MSELoss(linear_param_3, data_3) + 0.1*MSELoss(linear_param_4, data_4) + 0.1*MSELoss(linear_param_5, data_5) + 0.1*MSELoss(linear_param_6, data_6)
+
+
+    err, gradients = value_and_grad(f, argnums=(0))(params_tot, data_1['000'], data_2['000'], data_3['000'], data_4['000'], data_5['000'], data_6['000'])
+    sids = np.array(list(data_1.keys()))
+
+    # only optimize these parameters A/B
+    def mask_fn(grads):
+        for k in grads:
+            for j in grads[k]:
+                if j.startswith('A_') or j == 'B':
+                    continue
+                else:
+                    grads[k][j] = 0.0
+        return grads
+
+    # start to do optmization
+    lr = 0.001 # learning rate
+    optimizer = optax.adam(lr) # The classic Adam optimiser.
+    opt_state = optimizer.init(params_tot)
+
+    n_epochs = 10
+    for i_epoch in range(n_epochs):
+        np.random.shuffle(sids)
+        for sid in sids:
+            loss, grads = value_and_grad(f, argnums=(0))(params_tot, data_1[sid], data_2[sid], data_3[sid], data_4[sid], data_5[sid], data_6[sid])
+            grads = mask_fn(grads)
+            print(loss)
+            sys.stdout.flush()
+            updates, opt_state = optimizer.update(grads, opt_state)
+            params = optax.apply_updates(params, updates)
+        with open('params.test.pickle', 'wb') as ofile:
+            pickle.dump(params, ofile)

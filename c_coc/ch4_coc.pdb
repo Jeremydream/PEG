@@ -1,0 +1,31 @@
+TITLE     MDANALYSIS FRAME 0: Created by PDBWriter
+CRYST1   30.000   30.000   30.000  90.00  90.00  90.00 P 1           1
+ATOM      1  C00 TER X   1      15.022  12.534  14.627  0.00  1.00      SYST  
+ATOM      2  H01 TER X   1      15.513  13.472  14.917  0.00  1.00      SYST  
+ATOM      3  H02 TER X   1      14.542  12.081  15.515  0.00  1.00      SYST  
+ATOM      4  H03 TER X   1      15.779  11.830  14.235  0.00  1.00      SYST  
+ATOM      5  O04 TER X   1      14.055  12.858  13.633  0.00  1.00      SYST  
+ATOM      6  C05 TER X   1      13.368  11.687  13.202  0.00  1.00      SYST  
+ATOM      7  H06 TER X   1      12.835  11.207  14.045  0.00  1.00      SYST  
+ATOM      8  H07 TER X   1      14.070  10.954  12.761  0.00  1.00      SYST  
+ATOM      9  H08 TER X   1      12.640  12.001  12.442  0.00  1.00      SYST  
+ATOM     10  C00 UNL X   2      15.000  17.500  15.000  0.00  1.00      SYST  
+ATOM     11  H01 UNL X   2      13.902  17.497  15.002  0.00  1.00      SYST  
+ATOM     12  H02 UNL X   2      15.363  17.507  13.964  0.00  1.00      SYST  
+ATOM     13  H03 UNL X   2      15.370  16.601  15.511  0.00  1.00      SYST  
+ATOM     14  H04 UNL X   2      15.363  18.396  15.521  0.00  1.00      SYST  
+CONECT    1    2    3    4    5
+CONECT    2    1
+CONECT    3    1
+CONECT    4    1
+CONECT    5    1    6
+CONECT    6    5    7    8    9
+CONECT    7    6
+CONECT    8    6
+CONECT    9    6
+CONECT   10   11   12   13   14
+CONECT   11   10
+CONECT   12   10
+CONECT   13   10
+CONECT   14   10
+END

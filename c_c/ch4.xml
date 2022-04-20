@@ -1,0 +1,46 @@
+<forcefield>
+  <AtomTypes>
+    <Type name="1" class="CT" element="C" mass="12.0107"/>
+    <Type name="2" class="HC" element="H" mass="1.00784"/>
+  </AtomTypes>
+  <Residues>
+    <Residue name="TER">
+      <Atom name="C00" type="1"/>
+      <Atom name="H01" type="2"/>
+      <Atom name="H02" type="2"/>
+      <Atom name="H03" type="2"/>
+      <Atom name="H04" type="2"/>
+      <Bond from="0" to="1"/>
+      <Bond from="0" to="2"/>
+      <Bond from="0" to="3"/>
+      <Bond from="0" to="4"/>
+    </Residue>
+  </Residues>
+  <AmoebaMultipoleForce  direct11Scale="1.0"  direct12Scale="1.0"  direct13Scale="1.0"  direct14Scale="1.0"
+    mpole12Scale="0.5"  mpole13Scale="0.5"  mpole14Scale="0.8"  mpole15Scale="0.8"  
+    mutual11Scale="0.0" mutual12Scale="0.0"  mutual13Scale="1.0"  mutual14Scale="1.0"  
+    polar12Scale="1.0"  polar13Scale="0.0" polar14Intra="0.5"  polar14Scale="1.0"  polar15Scale="1.0"  >
+    <Multipole  type="1" kz="2" kx="2" c0="-0.61523400" d1="0.00000477" d2="-0.00000178" d3="-0.00000200" q11="0.00000009" q21="0.00000003" q22="-0.00000006" q31="-0.00000004" q32="0.00000004" q33="-0.00000003" />
+    <Multipole  type="2" kz="1" kx="2" c0="0.15382800" d1="-0.00000014" d2="0.00000009" d3="-0.00115086" q11="-0.00000193" q21="-0.00000000" q22="-0.00000193" q31="-0.00000001" q32="0.00000000" q33="0.00000386" />
+    <Polarize type="1" polarizability="1.3775e-03" thole="0.33" pgrp1="1" />
+    <Polarize type="2" polarizability="2.9404e-04" thole="0.33" pgrp1="1" />
+  </AmoebaMultipoleForce>
+  <CustomNonbondedForce bondCutoff="4"
+    energy="A*exp(-B*r) - 138.935584*exp(-B*r)*(1+B*r)*Q/r - (1-exp(-B*r)*(1+B*r+0.5*(B*r)^2+(B*r)^3/6+(B*r)^4/24+(B*r)^5/120+(B*r)^6/720))*C6/(r^6) - C8/(r^8) - C10/(r^10);
+    B=(B1+B2)*B1*B2/(B1^2+B2^2); Q=Q1*Q2; C6=sqrt(C61*C62); C8=sqrt(C81*C82); C10=sqrt(C101*C102); A=sqrt(A1*A2)" >
+    <PerParticleParameter name="B"/>
+    <PerParticleParameter name="Q"/>
+    <PerParticleParameter name="C6"/>
+    <PerParticleParameter name="C8"/>
+    <PerParticleParameter name="C10"/>
+    <PerParticleParameter name="A"/>
+    <Atom type="1" A="0.0" B="34.37579209" Q="-0.61523400" C6="2.334648e-03" C8="1.888216e-04" C10="7.213777e-06"/>
+    <Atom type="2" A="0.0" B="37.78372041" Q="0.15382800" C6="9.055918e-05" C8="2.928193e-06" C10="4.782868e-08"/>
+  </CustomNonbondedForce>
+  <HarmonicBondForce>
+    <Bond class1="HC" class2="CT" k="284512.000000" length="0.109000"/>
+  </HarmonicBondForce>
+  <HarmonicAngleForce>
+    <Angle angle="1.881465" class1="HC" class2="CT" class3="HC" k="276.144000"/>
+  </HarmonicAngleForce>
+</forcefield>

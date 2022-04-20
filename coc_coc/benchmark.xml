@@ -1,0 +1,52 @@
+<forcefield>
+  <AtomTypes>
+    <Type name="1" class="CT" element="C" mass="12.0107"/>
+    <Type name="2" class="HC" element="H" mass="1.00784"/>
+    <Type name="3" class="OS" element="O" mass="15.999"/>
+  </AtomTypes>
+  <Residues>
+    <Residue name="TER">
+      <Atom name="C00" type="1"/>
+      <Atom name="H01" type="2"/>
+      <Atom name="H02" type="2"/>
+      <Atom name="H03" type="2"/>
+      <Atom name="O04" type="3"/>
+      <Atom name="C05" type="1"/>
+      <Atom name="H06" type="2"/>
+      <Atom name="H07" type="2"/>
+      <Atom name="H08" type="2"/>
+      <Bond from="0" to="1"/>
+      <Bond from="0" to="2"/>
+      <Bond from="0" to="3"/>
+      <Bond from="0" to="4"/>
+      <Bond from="4" to="5"/>
+      <Bond from="5" to="6"/>
+      <Bond from="5" to="7"/>
+      <Bond from="5" to="8"/>        
+    </Residue>
+  </Residues>
+ <AmoebaMultipoleForce  direct11Scale="1.0"  direct12Scale="1.0"  direct13Scale="1.0"  direct14Scale="1.0"
+    mpole12Scale="0.5"  mpole13Scale="0.5"  mpole14Scale="0.8"  mpole15Scale="0.8"  mutual11Scale="0.0"
+    mutual12Scale="0.0"  mutual13Scale="1.0"  mutual14Scale="1.0"  polar12Scale="1.0"  polar13Scale="0.0"
+    polar14Intra="0.5"  polar14Scale="1.0"  polar15Scale="1.0"  >
+    <Multipole  type="1" kz="3" kx="2" c0="0.00701100" d1="-0.00055161" d2="-0.00000029" d3="0.00791999" q11="-0.00004777" q21="0.00000002" q22="-0.00007202" q31="-0.00002981" q32="-0.00000001" q33="0.00011979" />
+    <Multipole  type="2" kz="1" kx="2" c0="0.04957567" d1="-0.00017098" d2="0.00019957" d3="-0.00205381" q11="-0.00002056" q21="-0.00000614" q22="0.00000517" q31="-0.00000387" q32="-0.00000009" q33="0.00001538" />
+    <Multipole  type="3" kz="-1" kx="1" c0="-0.31119300" d1="0.00000370" d2="0.00000009" d3="0.01087090" q11="0.00033821" q21="-0.00000005" q22="-0.00024146" q31="-0.00000008" q32="-0.00000000" q33="-0.00009675" />
+    <Polarize type="1" polarizability="1.0800e-03" thole="0.33" pgrp1="1" />
+    <Polarize type="2" polarizability="3.6983e-04" thole="0.33" pgrp1="1" />
+    <Polarize type="3" polarizability="6.5788e-04" thole="0.33" pgrp1="1" />  
+ </AmoebaMultipoleForce>
+ <CustomNonbondedForce bondCutoff="4"
+    energy="A*exp(-B*r) - 138.935584*exp(-B*r)*(1+B*r)*Q/r - (1-exp(-B*r)*(1+B*r+0.5*(B*r)^2+(B*r)^3/6+(B*r)^4/24+(B*r)^5/120+(B*r)^6/720))*C6/(r^6) - C8/(r^8) - C10/(r^10);
+    B=(B1+B2)*B1*B2/(B1^2+B2^2); Q=Q1*Q2; C6=sqrt(C61*C62); C8=sqrt(C81*C82); C10=sqrt(C101*C102); A=sqrt(A1*A2)" >
+    <PerParticleParameter name="B"/>
+    <PerParticleParameter name="Q"/>
+    <PerParticleParameter name="C6"/>
+    <PerParticleParameter name="C8"/>
+    <PerParticleParameter name="C10"/>
+    <PerParticleParameter name="A"/>
+    <Atom type="1" A="0.0" B="34.37579209" Q="0.00701100" C6="1.512068e-03" C8="1.058440e-04" C10="3.526469e-06"/>
+    <Atom type="2" A="0.0" B="37.78372041" Q="0.04957567" C6="1.300460e-04" C8="4.159641e-06" C10="6.774369e-08"/>
+    <Atom type="3" A="0.0" B="37.81250801" Q="-0.31119300" C6="7.765531e-04" C8="6.523544e-05" C10="2.559181e-06"/>
+ </CustomNonbondedForce>
+</forcefield>

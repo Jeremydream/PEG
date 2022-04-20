@@ -1,0 +1,45 @@
+TITLE     MDANALYSIS FRAME 0: Created by PDBWriter
+CRYST1   30.000   30.000   30.000  90.00  90.00  90.00 P 1           1
+ATOM      1  C00 TER X   1      14.058  13.500  16.329  0.00  1.00      SYST  
+ATOM      2  H01 TER X   1      14.410  14.387  16.870  0.00  1.00      SYST  
+ATOM      3  H02 TER X   1      14.412  12.614  16.871  0.00  1.00      SYST  
+ATOM      4  O03 TER X   1      14.578  13.500  15.000  0.00  1.00      SYST  
+ATOM      5  C04 TER X   1      16.000  13.500  15.000  0.00  1.00      SYST  
+ATOM      6  H05 TER X   1      16.344  13.499  13.962  0.00  1.00      SYST  
+ATOM      7  H06 TER X   1      16.382  12.602  15.496  0.00  1.00      SYST  
+ATOM      8  H07 TER X   1      16.382  14.399  15.493  0.00  1.00      SYST  
+ATOM      9  C00 TER X   2      12.535  13.498  16.276  0.00  1.00      SYST  
+ATOM     10  H01 TER X   2      12.184  12.612  15.734  0.00  1.00      SYST  
+ATOM     11  H02 TER X   2      12.182  14.385  15.735  0.00  1.00      SYST  
+ATOM     12  O03 TER X   2      12.015  13.496  17.605  0.00  1.00      SYST  
+ATOM     13  C04 TER X   2      10.593  13.493  17.605  0.00  1.00      SYST  
+ATOM     14  H05 TER X   2      10.250  13.491  18.643  0.00  1.00      SYST  
+ATOM     15  H06 TER X   2      10.213  12.595  17.109  0.00  1.00      SYST  
+ATOM     16  H07 TER X   2      10.209  14.391  17.112  0.00  1.00      SYST  
+ATOM     17  C00 UNL X   1      15.000  17.500  15.000  0.00  1.00      SYST  
+ATOM     18  H01 UNL X   1      13.902  17.497  15.002  0.00  1.00      SYST  
+ATOM     19  H02 UNL X   1      15.363  17.507  13.964  0.00  1.00      SYST  
+ATOM     20  H03 UNL X   1      15.370  16.601  15.511  0.00  1.00      SYST  
+ATOM     21  H04 UNL X   1      15.363  18.396  15.521  0.00  1.00      SYST  
+CONECT    1    2    3    4    9
+CONECT    2    1
+CONECT    3    1
+CONECT    4    1    5
+CONECT    5    4    6    7    8
+CONECT    6    5
+CONECT    7    5
+CONECT    8    5
+CONECT    9    1   10   11   12
+CONECT   10    9
+CONECT   11    9
+CONECT   12    9   13
+CONECT   13   12   14   15   16
+CONECT   14   13
+CONECT   15   13
+CONECT   16   13
+CONECT   17   18   19   20   21
+CONECT   18   17
+CONECT   19   17
+CONECT   20   17
+CONECT   21   17
+END
