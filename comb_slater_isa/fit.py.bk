@@ -639,6 +639,6 @@ if __name__ == '__main__':
             print(loss)
             sys.stdout.flush()
             updates, opt_state = optimizer.update(grads, opt_state)
-            params = optax.apply_updates(params, updates)
+            params_tot = optax.apply_updates(params_tot, updates)
         with open('params.test.pickle', 'wb') as ofile:
-            pickle.dump(params, ofile)
+            pickle.dump(params_tot, ofile)
